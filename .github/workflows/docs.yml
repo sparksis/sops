@@ -24,6 +24,7 @@ jobs:
     permissions:
       id-token: write
       pages: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.0.0
@@ -39,13 +40,16 @@ jobs:
       - name: Run mdl on all MD files
         run: make checkmd
 
-      - run: |
+      - name: Convert README.rst to HTML
+        run: |
           pip install sphinx
           mkdir -p _site
           rst2html.py README.rst _site/index.html
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3.0.1
+
       - name: Deploy GitHub Pages site
+        if: "${{github.event_name == 'push'}}"
         uses: actions/deploy-pages@v4.0.5
     
