@@ -26,6 +26,7 @@ import (
 	"github.com/getsops/sops/v3/cmd/sops/codes"
 	"github.com/getsops/sops/v3/cmd/sops/common"
 	"github.com/getsops/sops/v3/cmd/sops/subcommand/exec"
+	filestatuscmd "github.com/getsops/sops/v3/cmd/sops/subcommand/filestatus"
 	"github.com/getsops/sops/v3/cmd/sops/subcommand/groups"
 	keyservicecmd "github.com/getsops/sops/v3/cmd/sops/subcommand/keyservice"
 	publishcmd "github.com/getsops/sops/v3/cmd/sops/subcommand/publish"
@@ -192,17 +193,40 @@ func main() {
 					log.Warn("exec-env's --background option is deprecated and will be removed in a future version of sops")
 				}
 
-				output, err := decrypt(opts)
+				tree, err := decryptTree(opts)
 				if err != nil {
 					return toExitError(err)
 				}
 
+				var env []string
+				for _, item := range tree.Branches[0] {
+					if dotenv.IsComplexValue(item.Value) {
+						return cli.NewExitError(fmt.Errorf("cannot use complex value in environment: %s", item.Value), codes.ErrorGeneric)
+					}
+					if _, ok := item.Key.(sops.Comment); ok {
+						continue
+					}
+					key, ok := item.Key.(string)
+					if !ok {
+						return cli.NewExitError(fmt.Errorf("cannot use non-string keys in environment, got %T", item.Key), codes.ErrorGeneric)
+					}
+					if strings.Contains(key, "=") {
+						return cli.NewExitError(fmt.Errorf("cannot use keys with '=' in environment: %s", key), codes.ErrorGeneric)
+					}
+					value, ok := item.Value.(string)
+					if !ok {
+						return cli.NewExitError(fmt.Errorf("cannot use non-string values in environment, got %T", item.Value), codes.ErrorGeneric)
+					}
+					env = append(env, fmt.Sprintf("%s=%s", key, value))
+				}
+
 				if err := exec.ExecWithEnv(exec.ExecOpts{
 					Command:    command,
-					Plaintext:  output,
+					Plaintext:  []byte{},
 					Background: c.Bool("background"),
 					Pristine:   c.Bool("pristine"),
 					User:       c.String("user"),
+					Env:        env,
 				}); err != nil {
 					return toExitError(err)
 				}
@@ -237,7 +261,7 @@ func main() {
 				},
 				cli.StringFlag{
 					Name:  "filename",
-					Usage: "filename for the temporarily file (default: tmp-file)",
+					Usage: fmt.Sprintf("filename for the temporarily file (default: %s)", exec.FallbackFilename),
 				},
 			}, keyserviceFlags...),
 			Action: func(c *cli.Context) error {
@@ -272,11 +296,6 @@ func main() {
 					return toExitError(err)
 				}
 
-				filename := c.String("filename")
-				if filename == "" {
-					filename = "tmp-file"
-				}
-
 				if c.Bool("background") {
 					log.Warn("exec-file's --background option is deprecated and will be removed in a future version of sops")
 				}
@@ -287,7 +306,7 @@ func main() {
 					Background: c.Bool("background"),
 					Fifo:       !c.Bool("no-fifo"),
 					User:       c.String("user"),
-					Filename:   filename,
+					Filename:   c.String("filename"),
 				}); err != nil {
 					return toExitError(err)
 				}
@@ -407,6 +426,38 @@ func main() {
 					log.Errorf("Error running keyservice: %s", err)
 					return err
 				}
+				return nil
+			},
+		},
+		{
+			Name:      "filestatus",
+			Usage:     "check the status of the file, returning encryption status",
+			ArgsUsage: `file`,
+			Flags:     []cli.Flag{},
+			Action: func(c *cli.Context) error {
+				if c.NArg() < 1 {
+					return common.NewExitError("Error: no file specified", codes.NoFileSpecified)
+				}
+
+				fileName := c.Args()[0]
+				inputStore := inputStore(c, fileName)
+				opts := filestatuscmd.Opts{
+					InputStore: inputStore,
+					InputPath:  fileName,
+				}
+
+				status, err := filestatuscmd.FileStatus(opts)
+				if err != nil {
+					return err
+				}
+
+				json, err := encodingjson.Marshal(status)
+				if err != nil {
+					return common.NewExitError(err, codes.ErrorGeneric)
+				}
+
+				fmt.Println(string(json))
+
 				return nil
 			},
 		},
@@ -1482,6 +1533,12 @@ func main() {
 	}, keyserviceFlags...)
 
 	app.Action = func(c *cli.Context) error {
+		isDecryptMode := c.Bool("decrypt")
+		isEncryptMode := c.Bool("encrypt")
+		isRotateMode := c.Bool("rotate")
+		isSetMode := c.String("set") != ""
+		isEditMode := !isEncryptMode && !isDecryptMode && !isRotateMode && !isSetMode
+
 		if c.Bool("verbose") {
 			logging.SetLevel(logrus.DebugLevel)
 		}
@@ -1501,7 +1558,7 @@ func main() {
 				c.String("rm-kms") != "" || c.String("rm-pgp") != "" || c.String("rm-gcp-kms") != "" || c.String("rm-hc-vault-transit") != "" || c.String("rm-azure-kv") != "" || c.String("rm-age") != "" {
 				return common.NewExitError("Error: cannot add or remove keys on non-existent files, use `--kms` and `--pgp` instead.", codes.CannotChangeKeysFromNonExistentFile)
 			}
-			if c.Bool("encrypt") || c.Bool("decrypt") || c.Bool("rotate") {
+			if isEncryptMode || isDecryptMode || isRotateMode {
 				return common.NewExitError("Error: cannot operate on non-existent file", codes.NoFileSpecified)
 			}
 		}
@@ -1511,26 +1568,30 @@ func main() {
 		}
 
 		commandCount := 0
-		if c.Bool("encrypt") {
+		if isDecryptMode {
 			commandCount++
 		}
-		if c.Bool("decrypt") {
+		if isEncryptMode {
 			commandCount++
 		}
-		if c.Bool("rotate") {
+		if isRotateMode {
 			commandCount++
 		}
-		if c.String("set") != "" {
+		if isSetMode {
 			commandCount++
 		}
 		if commandCount > 1 {
 			log.Warn("More than one command (--encrypt, --decrypt, --rotate, --set) has been specified. Only the changes made by the last one will be visible. Note that this behavior is deprecated and will cause an error eventually.")
 		}
 
-		// Load configuration here for backwards compatibility (error out in case of bad config files)
-		_, err = loadConfig(c, fileNameOverride, nil)
-		if err != nil {
-			return toExitError(err)
+		// Load configuration here for backwards compatibility (error out in case of bad config files),
+		// but only when not just decrypting (https://github.com/getsops/sops/issues/868)
+		needsCreationRule := isEncryptMode || isRotateMode || isSetMode || isEditMode
+		if needsCreationRule {
+			_, err = loadConfig(c, fileNameOverride, nil)
+			if err != nil {
+				return toExitError(err)
+			}
 		}
 
 		inputStore := inputStore(c, fileNameOverride)
@@ -1542,7 +1603,7 @@ func main() {
 			return toExitError(err)
 		}
 		var output []byte
-		if c.Bool("encrypt") {
+		if isEncryptMode {
 			encConfig, err := getEncryptConfig(c, fileNameOverride)
 			if err != nil {
 				return toExitError(err)
@@ -1558,12 +1619,12 @@ func main() {
 			// While this check is also done below, the `err` in this scope shadows
 			// the `err` in the outer scope.  **Only** do this in case --decrypt,
 			// --rotate-, and --set are not specified, though, to keep old behavior.
-			if err != nil && !c.Bool("decrypt") && !c.Bool("rotate") && c.String("set") == "" {
+			if err != nil && !isDecryptMode && !isRotateMode && !isSetMode {
 				return toExitError(err)
 			}
 		}
 
-		if c.Bool("decrypt") {
+		if isDecryptMode {
 			var extract []interface{}
 			extract, err = parseTreePath(c.String("extract"))
 			if err != nil {
@@ -1580,7 +1641,7 @@ func main() {
 				IgnoreMAC:       c.Bool("ignore-mac"),
 			})
 		}
-		if c.Bool("rotate") {
+		if isRotateMode {
 			rotateOpts, err := getRotateOpts(c, fileName, inputStore, outputStore, svcs, order)
 			if err != nil {
 				return toExitError(err)
@@ -1594,7 +1655,7 @@ func main() {
 			}
 		}
 
-		if c.String("set") != "" {
+		if isSetMode {
 			var path []interface{}
 			var value interface{}
 			path, value, err = extractSetArguments(c.String("set"))
@@ -1614,7 +1675,6 @@ func main() {
 			})
 		}
 
-		isEditMode := !c.Bool("encrypt") && !c.Bool("decrypt") && !c.Bool("rotate") && c.String("set") == ""
 		if isEditMode {
 			_, statErr := os.Stat(fileName)
 			fileExists := statErr == nil
@@ -1654,7 +1714,7 @@ func main() {
 
 		// We open the file *after* the operations on the tree have been
 		// executed to avoid truncating it when there's errors
-		if c.Bool("in-place") || isEditMode || c.String("set") != "" {
+		if c.Bool("in-place") || isEditMode || isSetMode {
 			file, err := os.Create(fileName)
 			if err != nil {
 				return common.NewExitError(fmt.Sprintf("Could not open in-place file for writing: %s", err), codes.CouldNotWriteOutputFile)
