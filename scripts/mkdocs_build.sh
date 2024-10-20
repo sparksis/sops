@@ -2,7 +2,7 @@
 
 set -x
 
-apt update && apt install pandoc
+conda install -c conda-forge pandoc
 
 # Install mkdocs and mkdocs-material
 pip install mkdocs mkdocs-material
