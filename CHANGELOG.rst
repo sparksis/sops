@@ -1,6 +1,93 @@
 Changelog
 =========
 
+3.9.1
+-----
+
+Improvements:
+
+* Dependency updates (#1550, #1554, #1558, #1562, #1565, #1568, #1575, #1581, #1589, #1593, #1602, #1603, #1618, #1629, #1635, #1639, #1640).
+* Clarify naming of the configuration file in the documentation (#1569).
+* Build with Go 1.22 (#1589).
+* Specify filename of missing file in error messages (#1625).
+* ``updatekeys`` subcommand: show changes in ``shamir_threshold`` (#1609).
+
+Bugfixes:
+
+* Fix the URL used for determining the latest SOPS version (#1553).
+* ``updatekeys`` subcommand: actually use option ``--shamir-secret-sharing-threshold`` (#1608).
+* Fix ``--config`` being ignored in subcommands by ``loadConfig`` (#1613).
+* Allow ``edit`` subcommand to create files (#1596).
+* Do not encrypt if a key group is empty, or there are no key groups (#1600).
+* Do not ignore config errors when trying to parse a config file (#1614).
+
+Project changes:
+
+* CI dependency updates (#1551, #1555, #1559, #1564, #1566, #1574, #1584, #1586, #1590, #1592, #1619, #1628, #1634).
+* Improve CI workflows (#1548, #1630).
+* Ignore user-set environment variable ``SOPS_AGE_KEY_FILE`` in tests (#1595).
+* Add example of using Age recipients in ``.sops.yaml`` (#1607).
+* Add linting check for Rust code formatting (#1604).
+* Set Rust version globally via ``rust-toolchain.toml`` for functional tests (#1612).
+* Improve test coverage (#1617).
+* Improve tests (#1622, #1624).
+* Simplify branch rules to check DCO and ``check`` task instead of an explicit list of tasks in the CLI workflow (#1621).
+* Build with Go 1.22 and 1.23 in CI and update Vault to 1.14 (#1531).
+* Build release with Go 1.22 (#1615).
+* Fix Dependabot config for Docker; add Dependabot config for Rust (#1632).
+* Lock Rust package versions for functional tests for improved reproducibility (#1637).
+* Rust dependency updates (#1638).
+
+3.9.0
+-----
+Features:
+
+* Add ``--mac-only-encrypted`` to compute MAC only over values which end up encrypted (#973)
+* Allow configuration of indentation for YAML and JSON stores (#1273, #1372)
+* Introduce a ``--pristine`` flag to ``sops exec-env`` (#912)
+* Allow to pass multiple paths to ``sops updatekeys`` (#1274)
+* Allow to override ``fileName`` with different value (#1332)
+* Sort masterkeys according to ``--decryption-order`` (#1345)
+* Add separate subcommands for encryption, decryption, rotating, editing, and setting values (#1391)
+* Add ``filestatus`` command (#545)
+* Add command ``unset`` (#1475)
+* Merge key for key groups and make keys unique (#1493)
+* Support using comments to select parts to encrypt (#974, #1392)
+
+Deprecations:
+
+* Deprecate the ``--background`` option to ``exec-env`` and ``exec-file`` (#1379)
+
+Improvements:
+
+* Warn/fail if the wrong number of arguments is provided (#1342)
+* Warn if more than one command is used (#1388)
+* Dependency updates (#1327, #1328, #1330, #1336, #1334, #1344, #1348, #1354, #1357, #1360, #1373, #1381, #1383, #1385, #1408, #1428, #1429, #1427, #1439, #1454, #1460, #1466, #1489, #1519, #1525, #1528, #1540, #1543, #1545)
+* Build with Go 1.21 (#1427)
+* Improve README.rst (#1339, #1399, #1350)
+* Fix typos (#1337, #1477, #1484)
+* Polish the ``sops help`` output a bit (#1341, #1544)
+* Improve and fix tests (#1346, #1349, #1370, #1390, #1396, #1492)
+* Create a constant for the ``sops`` metadata key (#1398)
+* Refactoring: move extraction of encryption and rotation options to separate functions (#1389)
+
+Bug fixes:
+
+* Respect ``aws_profile`` from keygroup config (#1049)
+* Fix a bug where not having a config results in a panic (#1371)
+* Consolidate Flatten/Unflatten pre/post processing (#1356)
+* INI and DotEnv stores: ``shamir_threshold`` is an integer (#1394)
+* Make check whether file contains invalid keys for encryption dependent on output store (#1393)
+* Do not panic if ``updatekeys`` is used with a config that has no creation rules defined (#1506)
+* ``exec-file``: if ``--filename`` is used, use the provided filename without random suffix (#1474)
+* Do not use DotEnv store for ``exec-env``, but specialized environment serializing code (#1436)
+* Decryption: do not fail if no matching ``creation_rule`` is present in config file (#1434)
+
+Project changes:
+
+* CI dependency updates (#1347, #1359, #1376, #1382, #1386, #1425, #1432, #1498, #1503, #1508, #1510, #1516, #1521, #1492, #1534)
+* Adjust Makefile to new goreleaser 6.0.0 release (#1526)
+
 3.8.1
 -----
 Improvements:
