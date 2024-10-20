@@ -1,0 +1,10 @@
+site_name: SOPS Documentation
+theme:
+  name: material
+
+nav:
+  - Home: README.md
+  - Release Notes: release.md
+
+plugins:
+  - search
