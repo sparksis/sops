@@ -3,10 +3,8 @@ theme:
   name: 'material'
 
 nav:
-  - Home: 'index.md'
-  - Usage: 'usage.md'
-  - Configuration: 'configuration.md'
-  - Examples: 'examples.md'
+  - Home: 'README.md'
+  - Change Log: 'CHANGELOG.md'
 
 plugins:
   - search
