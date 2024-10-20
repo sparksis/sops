@@ -1,10 +1,9 @@
-site_name: SOPS Documentation
+site_name: 'SOPS Documentation'
 theme:
-  name: material
+  name: 'material'
 
 nav:
-  - Home: README.md
-  - Release Notes: release.md
+  - Home: 'README.md'
 
 plugins:
   - search
