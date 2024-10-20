@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -x
+
 sudo sh -c 'apt update && apt install pandoc'
 
 # Install mkdocs and mkdocs-material
