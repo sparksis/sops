@@ -1,5 +1,7 @@
 #!/bin/bash
 
+sudo sh -c 'apt update && apt install pandoc'
+
 # Install mkdocs and mkdocs-material
 pip install mkdocs mkdocs-material
 
