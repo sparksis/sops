@@ -1,7 +1,10 @@
 site_name: 'SOPS Documentation'
 theme:
-  name: 'material'
-
+  name: readthedocs
+  highlightjs: true
+  hljs_languages:
+    - yaml
+    - rust
 
 site_url: https://sops.pages.dev/
 
