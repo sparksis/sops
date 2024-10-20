@@ -2,6 +2,9 @@ site_name: 'SOPS Documentation'
 theme:
   name: 'material'
 
+
+site_url: https://sops.pages.dev/
+
 nav:
   - Home: 'README.md'
   - Change Log: 'CHANGELOG.md'
